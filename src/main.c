@@ -4,12 +4,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "lvgl/lvgl.h"
-#include "lvgl/demos/lv_demos.h"
-#include "lvgl/src/core/lv_global.h"
+#include "../lvgl/lvgl.h"
+//#include "lvgl/demos/lv_demos.h"
+#include "../lvgl/src/core/lv_global.h"
 
 #if LV_USE_WAYLAND
-#include "backends/interface.h"
+#include "../backends/interface.h"
 #endif
 
 uint16_t window_width;
