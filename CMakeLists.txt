@@ -73,9 +73,9 @@ elseif (LV_USE_WAYLAND)
     target_include_directories(lvgl PRIVATE ${PROJECT_SOURCE_DIR}
                                             "${PROJECT_SOURCE_DIR}/wl_protocols")
     add_executable(blackpiTacho "${MY_SOURCES}" "${MY_ASSETS}" ${WAYLAND_PROTOCOLS_SRC} 
-        backends/wayland.c)
+         backends/wayland.c)
     target_compile_definitions(blackpiTacho PRIVATE LV_CONF_INCLUDE_SIMPLE)
-    target_link_libraries(blackpiTacho lvgl lvgl::examples lvgl::demos lvgl::thorvg m jansson
+    target_link_libraries(blackpiTacho lvgl lvgl::thorvg m jansson
         wayland-client wayland-cursor xkbcommon)
 
 else()

@@ -1131,7 +1131,7 @@
 #endif
 
 /** Use Wayland to open a window and handle input on Linux or BSD desktops */
-#define LV_USE_WAYLAND          0
+#define LV_USE_WAYLAND          1
 #if LV_USE_WAYLAND
     #define LV_WAYLAND_WINDOW_DECORATIONS   0    /**< Draw client side window decorations only necessary on Mutter/GNOME */
     #define LV_WAYLAND_WL_SHELL             0    /**< Use the legacy wl_shell protocol instead of the default XDG shell */
@@ -1172,7 +1172,7 @@
 #endif
 
 /** Driver for /dev/dri/card */
-#define LV_USE_LINUX_DRM        1
+#define LV_USE_LINUX_DRM        0
 
 #if LV_USE_LINUX_DRM
 
@@ -1190,7 +1190,7 @@
 #define LV_USE_EVDEV    1
 
 /** Driver for libinput input devices */
-#define LV_USE_LIBINPUT    1
+#define LV_USE_LIBINPUT    0
 
 #if LV_USE_LIBINPUT
     #define LV_LIBINPUT_BSD    0

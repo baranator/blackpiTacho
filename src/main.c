@@ -13,8 +13,6 @@
 
 #endif
 
-
-
 #include "btmui.h"
 
 uint16_t window_width;
@@ -29,10 +27,9 @@ static const char *getenv_default(const char *name, const char *dflt){
 }
 
 #if LV_USE_EVDEV
-static void indev_deleted_cb(lv_event_t * e)
-{
+static void indev_deleted_cb(lv_event_t * e){
     if(LV_GLOBAL_DEFAULT()->deinit_in_progress) return;
-    lv_obj_t * cursor_obj = (lv_obj_t *)lv_event_get_user_data(e);
+    lv_obj_t * cursor_obj = lv_event_get_user_data(e);//(lv_obj_t *)lv_event_get_user_data(e);
     lv_obj_delete(cursor_obj);
 }
 
@@ -43,7 +40,7 @@ static void discovery_cb(lv_indev_t * indev, lv_evdev_type_t type, void * user_d
                                               type == LV_EVDEV_TYPE_KEY ? "KEY" :
                                               "unknown");
 
-    lv_display_t * disp = (lv_display_t *)user_data;
+    lv_display_t * disp = user_data;
     lv_indev_set_display(indev, disp);
 
     if(type == LV_EVDEV_TYPE_REL) {
@@ -144,7 +141,10 @@ void lv_example_get_started_1(void)
 }
 
 int main(int argc, char **argv){
-
+        fullscreen = maximize = false;
+    window_width = atoi(getenv("LV_SIM_WINDOW_WIDTH") ? : "800");
+    window_height = atoi(getenv("LV_SIM_WINDOW_HEIGHT") ? : "480");
+    
     //configure_simulator(argc, argv);
     printf("hi!!!!");
     /* Initialize LVGL. */
@@ -152,7 +152,6 @@ int main(int argc, char **argv){
      printf("hi22!!!!");
     /* Initialize the configured backend SDL2, FBDEV, libDRM or wayland */
     lv_linux_disp_init();
-
     /*Create a Demo*/
    // lv_example_get_started_1();
     //lv_demo_widgets();

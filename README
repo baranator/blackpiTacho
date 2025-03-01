@@ -1,0 +1,1 @@
+LV_LINUX_EVDEV_POINTER_DEVICE=/dev/input/event0 ~/blackpiTacho/bin/blackpiTacho
