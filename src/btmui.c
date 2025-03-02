@@ -369,11 +369,17 @@ void showBtDevicesBoxCb(lv_event_t * e){
 
 void btConnTile(infotile* it,void* prefKey){
   //lv_obj_set_flex_flow(it->cont, LV_FLEX_FLOW_ROW);
+  
   it->value = lv_label_create(it->cont);
+  printf("xXXXXXXXXXXXXXXXXXXXXX\n");
   lv_obj_t * btn1=lv_button_create(it->cont);
   lv_obj_t * btnLabel = lv_label_create(btn1);
+  printf("x");
   lv_obj_set_style_text_color(btnLabel, lv_color_hex(0x000000), 0);
-  const char* btAddress=prefGetBattery1Address();
+ 
+  const char* btAddress=prefGetBtDeviceAddress(0);
+  printf(btAddress);
+   printf("y\n");return;
   if(strlen(btAddress)==0){
     lv_label_set_text(it->value,"---");
     lv_label_set_text(btnLabel,"+");
@@ -381,7 +387,7 @@ void btConnTile(infotile* it,void* prefKey){
     lv_label_set_text(it->value,btAddress);
     lv_label_set_text(btnLabel,"X");
   }
-
+  return;
 
   //add/remove device msgbox
   btDevicesBox = lv_msgbox_create(lv_screen_active());
@@ -775,7 +781,7 @@ void createSettingsTab(){
   lv_obj_add_event_cb(retardunits.value, sw_avas_evh, LV_EVENT_VALUE_CHANGED, NULL);
 
   //bluetooth-batteries
- // drawSettingsTile2(cont,&btBattery1, "Batterie 1", btConnTile, NULL, 600, 100);
+  drawSettingsTile2(cont,&btBattery1, "Batterie 1", btConnTile, NULL, 600, 100);
  // drawSettingsTile2(cont,&btBattery2, "Batterie 2", btConnTile, NULL, 600, 100);
 
 }
@@ -799,16 +805,16 @@ void initTileGridStyle(){
 
 }
 
-void showMainScreen(){
- //th = lv_theme_default_init(display,                 /* Use DPI, size, etc. from this display */
- //                                       lv_color_hex(0xffffff),   /* Primary and secondary palette */
- //                                       lv_color_hex(0xdddddd),
- //                                       true,                   /* Dark theme?  False = light theme. */
- //                                       &lv_font_montserrat_14);
- // lv_display_set_theme(display, th); /* Assign theme to display */
+void showMainScreen(lv_display_t *disp){
+ th = lv_theme_default_init(disp,                 /* Use DPI, size, etc. from this display */
+                                        lv_color_hex(0xffffff),   /* Primary and secondary palette */
+                                        lv_color_hex(0xdddddd),
+                                        true,                   /* Dark theme?  False = light theme. */
+                                        &lv_font_montserrat_14);
+  lv_display_set_theme(disp, th); /* Assign theme to display */
 
 
-  //lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x000000), LV_PART_MAIN);
+  lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x000000), LV_PART_MAIN);
 
 
   initTileGridStyle();

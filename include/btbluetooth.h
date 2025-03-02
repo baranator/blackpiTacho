@@ -2,7 +2,6 @@
 #define BTBLUETOOTH_H
 
 
-
 void btStartScan();
 void btScanSetup(void (*newDevCallback)(const char*));
 
