@@ -15,7 +15,7 @@ typedef enum btg_devtype {
 
 typedef struct pref_btg_dev{
 	btg_devtype type;
-	char* address;
+	char address[18];
 } pref_btg_dev;
 
 

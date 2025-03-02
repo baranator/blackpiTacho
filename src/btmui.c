@@ -201,9 +201,11 @@ void drawTacho(int x, int y, int rad){
     lv_style_set_pad_bottom(&ind_style,0);
     lv_style_set_pad_top(&ind_style,0);
     lv_style_set_arc_color(&ind_style,lv_theme_get_color_primary(arc));
+    
     lv_style_set_arc_width(&ind_style,40);
     lv_style_set_arc_rounded(&ind_style,false);
     lv_obj_add_style(arc, &ind_style, LV_PART_INDICATOR);
+    
 
     //readonly
     lv_obj_remove_flag(arc, LV_OBJ_FLAG_CLICKABLE);
@@ -379,7 +381,7 @@ void btConnTile(infotile* it,void* prefKey){
  
   const char* btAddress=prefGetBtDeviceAddress(0);
   printf(btAddress);
-   printf("y\n");return;
+   printf("y\n");
   if(strlen(btAddress)==0){
     lv_label_set_text(it->value,"---");
     lv_label_set_text(btnLabel,"+");
