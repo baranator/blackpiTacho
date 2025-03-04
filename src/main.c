@@ -15,6 +15,7 @@
 
 #include "btmui.h"
 #include "prefs.h"
+#include "btbluetooth.h"
 
 uint16_t window_width;
 uint16_t window_height;
@@ -146,6 +147,7 @@ void lv_example_get_started_1(void)
 int main(int argc, char **argv){
     prefLoad();
     prefSave();
+    gattbt_init();
     fullscreen = maximize = false;
     window_width = atoi(getenv("LV_SIM_WINDOW_WIDTH") ? : "800");
     window_height = atoi(getenv("LV_SIM_WINDOW_HEIGHT") ? : "480");

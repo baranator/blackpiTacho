@@ -1,8 +1,25 @@
-//#include <Arduino.h>
+#include <stdatomic.h>
+#include <pthread.h>
+#include <stdbool.h>
 
 #include "btbluetooth.h"
 
 int scanTime = 5; 
+
+char available_bt_devices[20][18];
+atomic_int lastInsert=0;
+
+pthread_t gattbt_bgthread;
+
+atomic_bool btjob_scan=true;
+
+
+static pthread_mutex_t m_available_bt_devices_lock = PTHREAD_MUTEX_INITIALIZER;
+
+
+char (*gattbt_get_available_devices())[18]{
+	return available_bt_devices;
+}
 
 void btScanSetup(void(*newDevCallback)(const char*)){
 }
@@ -221,6 +238,13 @@ static void ble_discovered_device(gattlib_adapter_t* adapter, const char* addr, 
 	int ret;
 	int16_t rssi;
 	
+	strcpy(available_bt_devices[lastInsert], addr);
+	printf( "Found other bluetooth device '%s', putitng it to %d \n", addr,lastInsert);
+	lastInsert=(lastInsert+1)%20;
+	
+	return;
+	
+	
 	if (stricmp(addr, m_argument.mac_address) != 0) {
 		GATTLIB_LOG(GATTLIB_INFO, "Found other bluetooth device '%s'", addr);
 		return;
@@ -247,27 +271,29 @@ static void* ble_task(void* arg) {
 	gattlib_adapter_t* adapter;
 	int ret;
 
+	//openadapter
 	ret = gattlib_adapter_open(m_argument.adapter_name, &adapter);
-	if (ret) {
-		GATTLIB_LOG(GATTLIB_ERROR, "Failed to open adapter.");
-		return NULL;
+	while(ret!=GATTLIB_SUCCESS){
+		GATTLIB_LOG(GATTLIB_ERROR, "Failed to open adapter.retry in 2s");
+		g_usleep(20 * G_USEC_PER_SEC);
+		ret = gattlib_adapter_open(m_argument.adapter_name, &adapter);
 	}
 	GATTLIB_LOG(GATTLIB_INFO, "adapter opened");
-
-	ret = gattlib_adapter_scan_enable(adapter, ble_discovered_device, BLE_SCAN_TIMEOUT, addr);
-	if (ret) {
-		GATTLIB_LOG(GATTLIB_ERROR, "Failed to scan.");
-		return NULL;
+	
+	while(true){
+		if(btjob_scan){
+			btjob_scan=false;
+			ret = gattlib_adapter_scan_enable(adapter, ble_discovered_device, BLE_SCAN_TIMEOUT, addr);
+			if (ret) {
+				GATTLIB_LOG(GATTLIB_ERROR, "Failed to scan.");
+				return NULL;
+			}
+			GATTLIB_LOG(GATTLIB_INFO, "scan succ");
+		}
 	}
-		GATTLIB_LOG(GATTLIB_INFO, "scan succ");
+	
 
 
-	// Wait for the device to be connected
-	pthread_mutex_lock(&m_connection_terminated_lock);
-	pthread_cond_wait(&m_connection_terminated, &m_connection_terminated_lock);
-	pthread_mutex_unlock(&m_connection_terminated_lock);
-
-	return NULL;
 }
 
 void gattbt_disconnect(){
@@ -289,14 +315,23 @@ bool gattbt_connect(const char* addr, int type){
 	return true;
 }
 
-void gattbt_init(){
-	int ret;
-	ret = gattlib_mainloop(ble_task, NULL);
+
+void* gattbt_bgthread_f(void* vargp){	
+    
+    int ret = gattlib_mainloop(ble_task, NULL);
 	GATTLIB_LOG(GATTLIB_ERROR, "running!");
 	if (ret != GATTLIB_SUCCESS) {
 		GATTLIB_LOG(GATTLIB_ERROR, "Failed to create gattlib mainloop");
 	}
 	GATTLIB_LOG(GATTLIB_ERROR, "running!!!!!");
+   
+}
+
+void gattbt_init(){
+	int ret;
+    pthread_create(&gattbt_bgthread, NULL, gattbt_bgthread_f, NULL);
+
+
 }
 
 int smain(int argc, char *argv[]) {

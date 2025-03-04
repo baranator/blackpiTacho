@@ -357,16 +357,36 @@ void lv_example_canvas_5(void){
 // }
 
 
-void fillBtListCb(const char* dev){
-  lv_list_add_text(btDevicesList, dev);
-  
-}
 
 void showBtDevicesBoxCb(lv_event_t * e){
+  
+    btDevicesBox = lv_msgbox_create(lv_screen_active());
+  //lv_obj_add_flag(btDevicesBox, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_set_size(btDevicesBox, 400, 400);
+  lv_msgbox_add_title(btDevicesBox, "Verfuegbare Bluetooth-Geraete");
+
+  lv_msgbox_add_text(btDevicesBox, "This is a message box with two buttons.");
+
+  lv_obj_t * content = lv_msgbox_get_content(btDevicesBox);
+  btDevicesList = lv_list_create(content);
+  lv_obj_set_size(btDevicesList, lv_pct(100), lv_pct(100));
+
+  lv_msgbox_add_close_button(btDevicesBox);
+  lv_obj_t * refreshBtn = lv_msgbox_add_header_button(btDevicesBox, LV_SYMBOL_MINUS);
     //lv_obj_t * mbox = (lv_obj_t *) lv_event_get_user_data(e);
-    lv_obj_remove_flag(btDevicesBox, LV_OBJ_FLAG_HIDDEN);
-    btScanSetup(fillBtListCb);
-    btStartScan();
+  //lv_obj_remove_flag(btDevicesBox, LV_OBJ_FLAG_HIDDEN);
+    //return;
+    char (*devs)[18] = gattbt_get_available_devices();
+    for(int i=0;i<20;i++){
+      if(strcmp(devs[19-i],"")!=0){
+        printf("adding btdevice %s to scan-liszplace %d\n",devs[19-i],i);
+        lv_list_add_button(btDevicesList,LV_SYMBOL_BLUETOOTH, devs[19-i]);
+      }
+    }
+    
+    
+    //btScanSetup(fillBtListCb);
+    //btStartScan();
 }
 
 void btConnTile(infotile* it,void* prefKey){
@@ -389,21 +409,10 @@ void btConnTile(infotile* it,void* prefKey){
     lv_label_set_text(it->value,btAddress);
     lv_label_set_text(btnLabel,"X");
   }
-  return;
+  
 
   //add/remove device msgbox
-  btDevicesBox = lv_msgbox_create(lv_screen_active());
-  lv_obj_add_flag(btDevicesBox, LV_OBJ_FLAG_HIDDEN);
-  lv_obj_set_size(btDevicesBox, 400, 400);
-  lv_msgbox_add_title(btDevicesBox, "Verfuegbare Bluetooth-Geraete");
 
-  lv_msgbox_add_text(btDevicesBox, "This is a message box with two buttons.");
-
-  lv_obj_t * content = lv_msgbox_get_content(btDevicesBox);
-  btDevicesList = lv_list_create(content);
-
-  lv_msgbox_add_close_button(btDevicesBox);
-  lv_obj_t * refreshBtn = lv_msgbox_add_header_button(btDevicesBox, LV_SYMBOL_MINUS);
   lv_obj_add_event_cb(btn1, showBtDevicesBoxCb, LV_EVENT_CLICKED, NULL);
 
 }
