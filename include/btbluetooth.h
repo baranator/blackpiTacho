@@ -1,7 +1,14 @@
 #ifndef BTBLUETOOTH_H
 #define BTBLUETOOTH_H
 
-char (*gattbt_get_available_devices())[18];
+
+typedef struct btg_av_dev{
+	char mac_address[18];
+	char name[25];
+} btg_av_dev;
+
+
+btg_av_dev* gattbt_get_available_devices();
 void gattbt_init();
 
 void btStartScan();

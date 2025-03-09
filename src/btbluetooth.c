@@ -6,7 +6,9 @@
 
 int scanTime = 5; 
 
-char available_bt_devices[20][18];
+
+
+btg_av_dev available_bt_devices[20];
 atomic_int lastInsert=0;
 
 pthread_t gattbt_bgthread;
@@ -17,7 +19,7 @@ atomic_bool btjob_scan=true;
 static pthread_mutex_t m_available_bt_devices_lock = PTHREAD_MUTEX_INITIALIZER;
 
 
-char (*gattbt_get_available_devices())[18]{
+btg_av_dev* gattbt_get_available_devices(){
 	return available_bt_devices;
 }
 
@@ -238,8 +240,9 @@ static void ble_discovered_device(gattlib_adapter_t* adapter, const char* addr, 
 	int ret;
 	int16_t rssi;
 	
-	strcpy(available_bt_devices[lastInsert], addr);
-	printf( "Found other bluetooth device '%s', putitng it to %d \n", addr,lastInsert);
+	strcpy(available_bt_devices[lastInsert].mac_address, addr);
+	strncpy(available_bt_devices[lastInsert].name, name,15);
+	printf( "Found other bluetooth device '%s' (%s), putitng it to %d \n", addr,name,lastInsert);
 	lastInsert=(lastInsert+1)%20;
 	
 	return;
@@ -290,6 +293,7 @@ static void* ble_task(void* arg) {
 			}
 			GATTLIB_LOG(GATTLIB_INFO, "scan succ");
 		}
+		g_usleep(1000);
 	}
 	
 

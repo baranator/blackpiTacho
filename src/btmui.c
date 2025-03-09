@@ -30,6 +30,9 @@ LV_IMAGE_DECLARE(warn_charge);
 LV_IMAGE_DECLARE(warn_eengine);
 LV_IMAGE_DECLARE(warn_light);
 LV_IMAGE_DECLARE(warn_temp);
+LV_IMAGE_DECLARE(arrowleft);
+LV_IMAGE_DECLARE(arrowright);
+
 
 lv_theme_t * th;
 
@@ -54,6 +57,8 @@ lv_obj_t* warnEngine;
 lv_obj_t* warnLight;
 lv_obj_t* warnBattery;
 lv_obj_t* warnTemp;
+lv_obj_t* indLeft;
+lv_obj_t* indRight;
 
 
 //tiles
@@ -257,7 +262,7 @@ void drawTachoV2(int x, int y, int rad){
     lv_style_init(&indicator_style);
 
     /* Label style properties */
-    lv_style_set_text_font(&indicator_style, LV_FONT_DEFAULT);
+    lv_style_set_text_font(&indicator_style, &lv_font_montserrat_18);
     lv_style_set_text_color(&indicator_style, lv_color_hex(0xffffff));
 
     /* Major tick properties */
@@ -376,11 +381,14 @@ void showBtDevicesBoxCb(lv_event_t * e){
     //lv_obj_t * mbox = (lv_obj_t *) lv_event_get_user_data(e);
   //lv_obj_remove_flag(btDevicesBox, LV_OBJ_FLAG_HIDDEN);
     //return;
-    char (*devs)[18] = gattbt_get_available_devices();
+    btg_av_dev* devs = gattbt_get_available_devices();
     for(int i=0;i<20;i++){
-      if(strcmp(devs[19-i],"")!=0){
-        printf("adding btdevice %s to scan-liszplace %d\n",devs[19-i],i);
-        lv_list_add_button(btDevicesList,LV_SYMBOL_BLUETOOTH, devs[19-i]);
+      btg_av_dev* d=devs+19-i;
+      if(strcmp(d->mac_address,"")!=0){
+        char lbl[60];
+        printf("adding btdevice %s to scan-liszplace %d\n",d->mac_address,i);
+        snprintf(lbl, 60-1,"%s (%s)",d->name,d->mac_address);
+        lv_list_add_button(btDevicesList,LV_SYMBOL_BLUETOOTH, lbl);
       }
     }
     
@@ -460,14 +468,14 @@ void drawInfoGrid(int width){
     lv_obj_set_scrollbar_mode(cont, LV_SCROLLBAR_MODE_OFF);
     lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN);
 
-    lv_obj_set_size(cont, width, 400);
-    lv_obj_align(cont , LV_ALIGN_TOP_RIGHT, 0, 40);
+    lv_obj_set_size(cont, width, 360);
+    lv_obj_align(cont , LV_ALIGN_TOP_RIGHT, 0, 10);
 
-    drawInfoTile2(cont,&range, "Restreichweite", simpleTileValueLabel, "42km", width,100);
-    drawInfoTile2(cont,&akku, "Akkustand", simpleTileValueLabel, "68p",width,100);
-    drawInfoTile2(cont,&odo, "Gesamtkilometer", simpleTileValueLabel, "137km", width,100);
-    drawInfoTile2(cont,&odo2, "Gesamtkilometer", simpleTileValueLabel, "138km", width,100);
-    drawInfoTile2(cont,&odo3, "Gesamtkilometer", simpleTileValueLabel, "139km", width,100);
+    drawInfoTile2(cont,&range, "Restreichweite", simpleTileValueLabel, "42km", width,110);
+    drawInfoTile2(cont,&akku, "Akkustand", simpleTileValueLabel, "68p",width,110);
+    drawInfoTile2(cont,&odo, "Gesamtkilometer", simpleTileValueLabel, "137km", width,110);
+    drawInfoTile2(cont,&odo2, "Gesamtkilometer", simpleTileValueLabel, "138km", width,110);
+    drawInfoTile2(cont,&odo3, "Gesamtkilometer", simpleTileValueLabel, "139km", width,110);
 
     //prevent overscrolling at the bottom
     lv_obj_remove_flag(odo2.cont, LV_OBJ_FLAG_SNAPPABLE);
@@ -639,8 +647,10 @@ lv_obj_t * initWarnLight2(  lv_obj_t * parent, const char symbol){
   switch(symbol){
     case 'b': lv_image_set_src(img1, &warn_charge);break;
     case 'e': lv_image_set_src(img1, &warn_eengine);break;
-    case 'l': lv_image_set_src(img1, &warn_light);break;
+    case 'h': lv_image_set_src(img1, &warn_light);break;
     case 't': lv_image_set_src(img1, &warn_temp);break;
+    case 'l': lv_image_set_src(img1, &arrowleft);break;
+    case 'r': lv_image_set_src(img1, &arrowright);break;
 
   }
   
@@ -658,13 +668,17 @@ void drawWarningLights2(){
 
   lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_ROW);
   lv_obj_set_flex_align(cont, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  lv_obj_set_size(cont, 220, 60);
-  lv_obj_align(cont , LV_ALIGN_BOTTOM_LEFT, 195, -75);
+  lv_obj_set_size(cont, 400, 60);
+  lv_obj_align(cont , LV_ALIGN_BOTTOM_MID, -110, 0);
 
+  indLeft = initWarnLight2(cont,'l');
+  lv_obj_set_style_margin_right(indLeft,50,0);
   warnBattery = initWarnLight2(cont,'b');
-  warnLight= initWarnLight2(cont,'l');
+  warnLight= initWarnLight2(cont,'h');
   warnTemp = initWarnLight2(cont,'t');
   warnEngine = initWarnLight2(cont,'e');
+  indRight = initWarnLight2(cont,'r');
+  lv_obj_set_style_margin_left(indRight,50,0);
 
 }
 
@@ -707,7 +721,7 @@ void drawBTMLogo(){
   lv_obj_set_style_img_recolor(img1, lv_color_hex(0xffffff),0);
   lv_obj_set_style_img_recolor_opa(img1,LV_OPA_COVER ,0);
   lv_image_set_src(img1, &Black_50);
-  lv_obj_align(img1 , LV_ALIGN_BOTTOM_LEFT,200,-10);
+  lv_obj_align(img1 , LV_ALIGN_BOTTOM_LEFT,230,-80);
 }
 
 void createTachoTab(){
@@ -798,8 +812,8 @@ void createSettingsTab(){
 }
 
 void drawClock(){
-  lv_obj_t *  clk = lv_label_create(lv_screen_active());
-  lv_obj_align(clk , LV_ALIGN_TOP_RIGHT, -20, 10);
+  lv_obj_t *  clk = lv_label_create(tachoTab);
+  lv_obj_align(clk , LV_ALIGN_BOTTOM_RIGHT, -25, 0);
   lv_obj_set_style_text_font(clk, &brandon_BI_40,0);
   lv_label_set_text(clk,"13.37");
 
