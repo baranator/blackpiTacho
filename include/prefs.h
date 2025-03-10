@@ -3,20 +3,13 @@
 #include <stdbool.h>
 #include<jansson.h>
 
-#define NUM_BT_DEVICES 3
+#include "btbluetooth.h"
 
 
-typedef enum btg_devtype {
-	UNKNOWN=0,
-	BMS_DALY=1,
-	CTRL_FARDRIVER=2
-} btg_devtype;
-
-
-typedef struct pref_btg_dev{
-	btg_devtype type;
-	char address[18];
-} pref_btg_dev;
+// typedef struct pref_btg_dev{
+// 	btg_devtype type;
+// 	char address[18];
+// } pref_btg_dev;
 
 
 bool prefSave();
@@ -25,6 +18,10 @@ void prefSetAvasEnabled(bool b);
 bool prefGetRetardUnits();
 void prefSetRetardUnits(bool b);
 const char * prefGetBtDeviceAddress(int i);
+void prefSetBtDeviceAddress(int i,char* a);
+
+void prefSetBtDeviceType(int i, btg_devtype t);
+char* btg_devtype2string(btg_devtype t);
 bool prefLoad();
 
 

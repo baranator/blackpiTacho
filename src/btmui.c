@@ -10,11 +10,17 @@
 
 //#include "../.pio/libdeps/esp32-s3/lvgl/examples/lv_examples.h"
 
-typedef struct {
+typedef struct{
   lv_obj_t * cont;
   lv_obj_t * tile;
   lv_obj_t * value;
-}infotile;
+} infotile;
+
+// typedef struct sel_bt_device{
+// 	char* address;
+//     uint16_t key;
+//     btg_devtype type;
+// } sel_bt_device;
 
 
 LV_FONT_DECLARE(brandon_BI_40);
@@ -362,33 +368,57 @@ void lv_example_canvas_5(void){
 // }
 
 
+void selBtDevice(lv_event_t* e){
+  btg_dev* s=(btg_dev*) lv_event_get_user_data(e);
+  prefSetBtDeviceAddress(s->key,s->address);
+  prefSetBtDeviceType(s->key,s->type);
+  printf("saving %d - %s\n",s->key,s->address);
+  //free(s);
+  lv_msgbox_close(btDevicesBox);
+}
+
+void selBtType(lv_event_t* e){
+  btg_dev* s=(btg_dev*) lv_event_get_user_data(e);
+  printf("switching %d - %s\n",s->key,s->address);
+}
 
 void showBtDevicesBoxCb(lv_event_t * e){
   
     btDevicesBox = lv_msgbox_create(lv_screen_active());
+    uint16_t* index=(uint16_t*) lv_event_get_user_data(e);
+    
+    
   //lv_obj_add_flag(btDevicesBox, LV_OBJ_FLAG_HIDDEN);
-  lv_obj_set_size(btDevicesBox, 400, 400);
+  lv_obj_set_size(btDevicesBox, 650, 400);
   lv_msgbox_add_title(btDevicesBox, "Verfuegbare Bluetooth-Geraete");
 
   lv_msgbox_add_text(btDevicesBox, "This is a message box with two buttons.");
 
   lv_obj_t * content = lv_msgbox_get_content(btDevicesBox);
   btDevicesList = lv_list_create(content);
-  lv_obj_set_size(btDevicesList, lv_pct(100), lv_pct(100));
+  lv_obj_set_size(btDevicesList, lv_pct(100), lv_pct(90));
 
   lv_msgbox_add_close_button(btDevicesBox);
-  lv_obj_t * refreshBtn = lv_msgbox_add_header_button(btDevicesBox, LV_SYMBOL_MINUS);
+  lv_obj_t * refreshBtn = lv_msgbox_add_header_button(btDevicesBox, LV_SYMBOL_REFRESH);
     //lv_obj_t * mbox = (lv_obj_t *) lv_event_get_user_data(e);
   //lv_obj_remove_flag(btDevicesBox, LV_OBJ_FLAG_HIDDEN);
     //return;
-    btg_av_dev* devs = gattbt_get_available_devices();
+    btg_dev* devs = gattbt_get_available_devices();
     for(int i=0;i<20;i++){
-      btg_av_dev* d=devs+19-i;
-      if(strcmp(d->mac_address,"")!=0){
+      btg_dev* d=devs+i;
+      if(strcmp(d->address,"")!=0){
         char lbl[60];
-        printf("adding btdevice %s to scan-liszplace %d\n",d->mac_address,i);
-        snprintf(lbl, 60-1,"%s (%s)",d->name,d->mac_address);
-        lv_list_add_button(btDevicesList,LV_SYMBOL_BLUETOOTH, lbl);
+
+        //sel_bt_device *s=malloc(sizeof(sel_bt_device));
+        d->key=*index;
+        d->type=BMS_DALY;
+        
+        printf("adding btdevice %s to scan-liszplace %d\n",d->address,i);
+        snprintf(lbl, 60-1,"%s (%s) [%s]",d->name,d->address,btg_devtype2string(d->type));
+        lv_obj_t * seldev=lv_list_add_button(btDevicesList,LV_SYMBOL_BLUETOOTH, lbl);
+        
+        lv_obj_add_event_cb(seldev, selBtDevice, LV_EVENT_SHORT_CLICKED, d);
+        lv_obj_add_event_cb(seldev, selBtType, LV_EVENT_LONG_PRESSED, d);
       }
     }
     
@@ -399,15 +429,17 @@ void showBtDevicesBoxCb(lv_event_t * e){
 
 void btConnTile(infotile* it,void* prefKey){
   //lv_obj_set_flex_flow(it->cont, LV_FLEX_FLOW_ROW);
-  
+
   it->value = lv_label_create(it->cont);
-  printf("xXXXXXXXXXXXXXXXXXXXXX\n");
+  printf("creating tile for array index %d\n",(*(uint16_t*)prefKey));
   lv_obj_t * btn1=lv_button_create(it->cont);
   lv_obj_t * btnLabel = lv_label_create(btn1);
   printf("x");
   lv_obj_set_style_text_color(btnLabel, lv_color_hex(0x000000), 0);
  
-  const char* btAddress=prefGetBtDeviceAddress(0);
+  const char* btAddress=prefGetBtDeviceAddress((*(uint16_t*)prefKey));
+  //free(prefKey);
+  
   printf(btAddress);
    printf("y\n");
   if(strlen(btAddress)==0){
@@ -421,7 +453,7 @@ void btConnTile(infotile* it,void* prefKey){
 
   //add/remove device msgbox
 
-  lv_obj_add_event_cb(btn1, showBtDevicesBoxCb, LV_EVENT_CLICKED, NULL);
+  lv_obj_add_event_cb(btn1, showBtDevicesBoxCb, LV_EVENT_CLICKED, prefKey);
 
 }
 
@@ -432,7 +464,12 @@ void simpleTileValueSwitch(infotile* it, void* ud){
 void simpleTileValueLabel(infotile* it, const char* v){
   it->value = lv_label_create(it->cont);
   lv_label_set_text(it->value , v); 
-    lv_obj_set_style_text_font(it->value , &brandon_BI_50,0);
+    lv_obj_set_style_text_font(it->value , &brandon_BI_55,0);
+   //lv_obj_set_style_bg_color(it->cont,lv_color_hex(0xff0000),0);
+   lv_obj_set_style_text_align(it->value, LV_TEXT_ALIGN_CENTER, 0);
+   //lv_obj_set_align(it->value, LV_ALIGN_CENTER);
+    lv_obj_set_size(it->value, lv_pct(100), 60);
+    
   //  lv_obj_set_grid_cell(it->value , LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 1, 1);
 
 }
@@ -602,6 +639,7 @@ void drawSettingsTile2(lv_obj_t * parent,infotile* it, const char* name, void (*
   lv_obj_set_flex_align(cont, LV_FLEX_ALIGN_SPACE_BETWEEN,LV_FLEX_ALIGN_CENTER,LV_FLEX_ALIGN_CENTER);
   it->cont=cont; 
   valfunc(it,ud);  
+  
 }
 
 
@@ -799,16 +837,24 @@ void createSettingsTab(){
   //imperial units
   drawSettingsTile2(cont,&retardunits, "Imperiale Einheiten", simpleTileValueSwitch,NULL, 600, 100);
   if(prefGetRetardUnits()){
-    lv_obj_add_state(avason.value, LV_STATE_CHECKED);
+    lv_obj_add_state(retardunits.value, LV_STATE_CHECKED);
   }else{
-    lv_obj_remove_state(avason.value, LV_STATE_CHECKED);
+    lv_obj_remove_state(retardunits.value, LV_STATE_CHECKED);
   }
   lv_obj_add_event_cb(retardunits.value, sw_avas_evh, LV_EVENT_VALUE_CHANGED, NULL);
 
   //bluetooth-batteries
-  drawSettingsTile2(cont,&btBattery1, "Batterie 1", btConnTile, NULL, 600, 100);
+  btg_dev* devs=gattbt_get_devices();
+  
+  for(uint16_t i=0;i<NUM_BT_DEVICES;i++){
+    char dn[30];
+    //uint16_t* key = devs+i;
+    devs[i].key=i;
+    sprintf(dn,LV_SYMBOL_BLUETOOTH " BT#%d (%s)",i,btg_devtype2string(devs[i].type));
+    drawSettingsTile2(cont,&btBattery1, dn, btConnTile,  &devs[i].key, 600, 100);
+  }
  // drawSettingsTile2(cont,&btBattery2, "Batterie 2", btConnTile, NULL, 600, 100);
-
+printf("a\n");
 }
 
 void drawClock(){
@@ -850,7 +896,7 @@ void showMainScreen(lv_display_t *disp){
   createTachoTab();
   createSettingsTab();
   drawClock();
-
+printf("A\n");
    // drawTempBars(0,0);
    // lv_example_canvas_5();
 

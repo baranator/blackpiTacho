@@ -4,34 +4,6 @@
 
 #include "btbluetooth.h"
 
-int scanTime = 5; 
-
-
-
-btg_av_dev available_bt_devices[20];
-atomic_int lastInsert=0;
-
-pthread_t gattbt_bgthread;
-
-atomic_bool btjob_scan=true;
-
-
-static pthread_mutex_t m_available_bt_devices_lock = PTHREAD_MUTEX_INITIALIZER;
-
-
-btg_av_dev* gattbt_get_available_devices(){
-	return available_bt_devices;
-}
-
-void btScanSetup(void(*newDevCallback)(const char*)){
-}
-void btStartScan(){
-}
-
-
-
-
-
 #include <ctype.h>
 #include <glib.h>
 #include <pthread.h>
@@ -42,39 +14,67 @@ void btStartScan(){
 #include <syslog.h>
 #endif
 
-#include "gattlib.h"
+
 
 #define BLE_SCAN_TIMEOUT   10
 
 
-#define NUM_BT_DEVICES 2
-#define BMS_MAX_CELLS 32
-
-typedef enum btg_devtype {
-	UNKNOWN=0,
-	DALYBMS=1,
-	FARDRIVER=2
-} btg_devtype;
 
 
-typedef struct btg_bmsdata{
-	uint16_t soc_perm;
-	uint16_t voltage_x10;
-	int32_t current_x10;
-	uint8_t num_cells;
-	uint16_t cell_voltage_x10[BMS_MAX_CELLS];
-	
-} btg_bmsdata;
 
-typedef struct btg_dev{
-	btg_devtype type;
-	char* mac_address;
-	gattlib_connection_t* connection;
-	btg_bmsdata data;
-} btg_dev;
+int scanTime = 5; 
 
 
+
+btg_dev available_bt_devices[BT_MAX_SCAN_DEVS];
 btg_dev btg_devices[NUM_BT_DEVICES]; 
+
+atomic_int lastInsert=0;
+
+pthread_t gattbt_bgthread;
+
+atomic_bool btjob_scan=true;
+
+
+static pthread_mutex_t m_available_bt_devices_lock = PTHREAD_MUTEX_INITIALIZER;
+
+
+btg_dev* gattbt_get_available_devices(){
+	return available_bt_devices;
+}
+
+btg_dev gattbt_get_available_device(uint16_t i){
+	pthread_mutex_lock(&m_available_bt_devices_lock);
+	btg_dev b = available_bt_devices[i];
+	pthread_mutex_lock(&m_available_bt_devices_lock);
+	return b;
+}
+
+
+btg_dev* gattbt_get_devices(){
+	return btg_devices;
+}
+
+char* btg_devtype2string(btg_devtype t){
+        if(t == BMS_DALY){
+            return "bms_daly";
+        }else if(t == CTRL_FARDRIVER){
+            return "ctrl_fardriver";
+		}
+        return "";
+}
+
+btg_devtype btg_string2devtype(char* s){
+	
+		if(strcmp(s,"bms_daly") == 0){
+            return BMS_DALY;
+        }else if(strcmp(s,"ctrl_fardriver") == 0){
+            return CTRL_FARDRIVER;
+        }
+		return UNKNOWN;
+}
+
+
 
 
 
@@ -138,9 +138,9 @@ static void notification_handler(const uuid_t* uuid, const uint8_t* data, size_t
 	
 	for(unsigned int i=0;i<NUM_BT_DEVICES;i++){
 		printf("dev %d \n",i);
-		if(btg_devices[i].mac_address!=NULL && stricmp(btg_devices[i].mac_address, addr)==0){
+		if(btg_devices[i].address!=NULL && stricmp(btg_devices[i].address, addr)==0){
 			printf("treffer ");
-			if(btg_devices[i].type == DALYBMS){
+			if(btg_devices[i].type == BMS_DALY){
 				btg_parse_data_dalybms(btg_devices+i,data,data_length);
 			}
 			
@@ -239,11 +239,24 @@ static void on_device_connect(gattlib_adapter_t* adapter, const char *addr, gatt
 static void ble_discovered_device(gattlib_adapter_t* adapter, const char* addr, const char* name, void *user_data) {
 	int ret;
 	int16_t rssi;
+	if(lastInsert>=BT_MAX_SCAN_DEVS){
+		return;
+	}
+	//return;
 	
-	strcpy(available_bt_devices[lastInsert].mac_address, addr);
-	strncpy(available_bt_devices[lastInsert].name, name,15);
-	printf( "Found other bluetooth device '%s' (%s), putitng it to %d \n", addr,name,lastInsert);
-	lastInsert=(lastInsert+1)%20;
+	//following lines may cause race condition/segfault
+	pthread_mutex_lock(&m_available_bt_devices_lock);
+	strcpy(available_bt_devices[lastInsert].address, addr);
+	
+	if(name != NULL){
+		uint16_t namel=strlen(name);
+		strncpy(available_bt_devices[lastInsert].name, name, 15);
+	}else{
+		strncpy(available_bt_devices[lastInsert].name, "<<unkn.>>", 10);
+	}
+	pthread_mutex_unlock(&m_available_bt_devices_lock);
+	//printf( "Found other bluetooth device '%s' (%s), putitng it to %d \n", addr,name,lastInsert);
+	lastInsert++;
 	
 	return;
 	
@@ -268,32 +281,40 @@ static void ble_discovered_device(gattlib_adapter_t* adapter, const char* addr, 
 		
 	}
 }
-
+//-> hier is der absturz drin
 static void* ble_task(void* arg) {
 	char* addr = arg;
 	gattlib_adapter_t* adapter;
 	int ret;
-
+	printf("BLETASK\n");
 	//openadapter
 	ret = gattlib_adapter_open(m_argument.adapter_name, &adapter);
+	printf("BLETASK2\n");
 	while(ret!=GATTLIB_SUCCESS){
-		GATTLIB_LOG(GATTLIB_ERROR, "Failed to open adapter.retry in 2s");
+		printf("Failed to open adapter.retry in 2s\n");
 		g_usleep(20 * G_USEC_PER_SEC);
 		ret = gattlib_adapter_open(m_argument.adapter_name, &adapter);
 	}
-	GATTLIB_LOG(GATTLIB_INFO, "adapter opened");
+	printf("adapter opened\n");
 	
 	while(true){
+		//printf("loop bt\n");
 		if(btjob_scan){
 			btjob_scan=false;
+			for(int i=0;i<BT_MAX_SCAN_DEVS;i++){
+				strcpy(available_bt_devices[i].address,"");
+				strcpy(available_bt_devices[i].name,"");
+			}
+			lastInsert=0;
+			printf("scan succ0: %s\n",addr);
 			ret = gattlib_adapter_scan_enable(adapter, ble_discovered_device, BLE_SCAN_TIMEOUT, addr);
 			if (ret) {
-				GATTLIB_LOG(GATTLIB_ERROR, "Failed to scan.");
+				printf("Failed to scan.\n");
 				return NULL;
 			}
-			GATTLIB_LOG(GATTLIB_INFO, "scan succ");
+			printf("scan succ\n");
 		}
-		g_usleep(1000);
+		g_usleep(1000*10);
 	}
 	
 
@@ -321,8 +342,9 @@ bool gattbt_connect(const char* addr, int type){
 
 
 void* gattbt_bgthread_f(void* vargp){	
-    
+    printf("GATTLIBPTH\n");
     int ret = gattlib_mainloop(ble_task, NULL);
+	//int ret=0;
 	GATTLIB_LOG(GATTLIB_ERROR, "running!");
 	if (ret != GATTLIB_SUCCESS) {
 		GATTLIB_LOG(GATTLIB_ERROR, "Failed to create gattlib mainloop");
@@ -333,6 +355,7 @@ void* gattbt_bgthread_f(void* vargp){
 
 void gattbt_init(){
 	int ret;
+	printf("gattinit\n");
     pthread_create(&gattbt_bgthread, NULL, gattbt_bgthread_f, NULL);
 
 
@@ -342,10 +365,10 @@ int smain(int argc, char *argv[]) {
 	
 
 	m_argument.adapter_name = NULL;
-	//m_argument.mac_address = "E4:52:49:AE:AC:2C";
+	m_argument.mac_address = "E4:52:49:AE:AC:2C";
 	m_argument.mac_address = "86:68:02:01:0d:2d";
-	btg_devices[0].mac_address = "86:68:02:01:0d:2d";
-	btg_devices[0].type = DALYBMS;
+	//btg_devices[0].address = "86:68:02:01:0d:2d";
+	//btg_devices[0].type = BMS_DALY;
 	gattbt_init();
 
 	return 0;
