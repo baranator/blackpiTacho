@@ -18,6 +18,8 @@ const char * prefGetBtDeviceAddress(int i);
 void prefSetBtDeviceAddress(int i,char* a);
 
 void prefSetBtDeviceType(int i, btg_devtype t);
+btg_devtype* prefGetBtDeviceType(int i);
+
 char* btg_devtype2string(btg_devtype t);
 bool prefLoad();
 

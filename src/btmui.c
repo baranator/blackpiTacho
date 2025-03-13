@@ -383,7 +383,11 @@ void selBtDevice(lv_event_t* e){
 
 void selBtType(lv_event_t* e){
   uint16_t* k=(uint16_t*) lv_event_get_user_data(e);
-  //prefGetBtDeviceType(*btListForSlot,s->type);
+  btg_devtype* t=prefGetBtDeviceType(*k);
+  
+  prefSetBtDeviceType(*k,((*t)+1)%3);
+  
+  
   btConnTile(NULL,k);
   printf("switching  %d\n",*k);
   

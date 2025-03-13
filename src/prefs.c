@@ -58,11 +58,12 @@ void prefSetBtDeviceAddress(int i, char* a){
     strcpy(bluetooth_devices[i].address, a);
     prefSave();
 }
-btg_devtype prefGetBtDeviceType(int i){
+btg_devtype* prefGetBtDeviceType(int i){
     if(i>=NUM_BT_DEVICES)
         return UNKNOWN;
-    return bluetooth_devices[i].type;
+    return &bluetooth_devices[i].type;
 }
+
 
 void prefSetBtDeviceType(int i, btg_devtype t){
     if(i>=NUM_BT_DEVICES)
