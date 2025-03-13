@@ -11,9 +11,9 @@
 //#include "../.pio/libdeps/esp32-s3/lvgl/examples/lv_examples.h"
 
 typedef struct{
-  lv_obj_t * cont;
-  lv_obj_t * tile;
-  lv_obj_t * value;
+  lv_obj_t * cont;  //the tile itself/container
+  lv_obj_t * value; //the part where the value is shown; may be a simple label or a swich or other logical stuff
+  lv_obj_t * label; //the label/heading of the tile
 } infotile;
 
 // typedef struct sel_bt_device{
@@ -72,10 +72,11 @@ lv_obj_t* indRight;
 infotile akku,odo,odo2,odo3,range;
 //settings
 infotile avason,themesel,retardunits,btBattery1,btBattery2;
-
+infotile batteries[NUM_BT_DEVICES];
 //msgbox
 lv_obj_t * btDevicesBox;
 lv_obj_t * btDevicesList; 
+uint16_t* btListForSlot=NULL;
 
 
 uint16_t km2mi(uint16_t km){
@@ -367,26 +368,69 @@ void lv_example_canvas_5(void){
 
 // }
 
+void btConnTile(infotile* ix_unused ,void* key);
 
 void selBtDevice(lv_event_t* e){
   btg_dev* s=(btg_dev*) lv_event_get_user_data(e);
-  prefSetBtDeviceAddress(s->key,s->address);
-  prefSetBtDeviceType(s->key,s->type);
-  printf("saving %d - %s\n",s->key,s->address);
+  prefSetBtDeviceAddress(*btListForSlot,s->address);
+  prefSetBtDeviceType(*btListForSlot,s->type);
+  printf("saving  %s\n",s->address);
   //free(s);
+  btConnTile(NULL,btListForSlot);
   lv_msgbox_close(btDevicesBox);
+  
 }
 
 void selBtType(lv_event_t* e){
-  btg_dev* s=(btg_dev*) lv_event_get_user_data(e);
-  printf("switching %d - %s\n",s->key,s->address);
+  uint16_t* k=(uint16_t*) lv_event_get_user_data(e);
+  //prefGetBtDeviceType(*btListForSlot,s->type);
+  btConnTile(NULL,k);
+  printf("switching  %d\n",*k);
+  
+}
+
+
+void addAvDevsToList(){
+    btg_dev* devs = gattbt_get_available_devices();
+    printf("add devs cb\n");
+    for(int i=0;i<20;i++){
+      btg_dev* d=devs+i;
+      if(strcmp(d->address,"")!=0){
+        char lbl[60];
+
+        //sel_bt_device *s=malloc(sizeof(sel_bt_device));
+       // d->key=*x;
+        d->type=BMS_DALY;
+        
+        printf("adding btdevice %s to scan-liszplace %d\n",d->address,i);
+        snprintf(lbl, 60-1,"%s (%s)",d->name,d->address);
+        
+        lv_obj_t * seldev=lv_list_add_button(btDevicesList,LV_SYMBOL_BLUETOOTH, lbl);
+        
+        if(gattbt_exists(d->address)){
+          lv_obj_set_style_text_color(seldev, lv_color_hex(0xee0000), 0);
+        }else{
+          lv_obj_add_event_cb(seldev, selBtDevice, LV_EVENT_SHORT_CLICKED, d);
+        }
+        
+      //  lv_obj_add_event_cb(seldev, selBtType, LV_EVENT_LONG_PRESSED, d);
+      }
+    }
+}
+
+void refreshBtAv(lv_event_t* e){
+  printf("refreshing bt\n");
+  lv_obj_clean(btDevicesList);
+  gattbt_set_discover_cb(addAvDevsToList);
+  //gattbt_abortscan(); //causes segfault -> race cond?
+  gattbt_startscan();
 }
 
 void showBtDevicesBoxCb(lv_event_t * e){
-  
+  //
     btDevicesBox = lv_msgbox_create(lv_screen_active());
-    uint16_t* index=(uint16_t*) lv_event_get_user_data(e);
-    
+    btListForSlot=(uint16_t*) lv_event_get_user_data(e);
+  
     
   //lv_obj_add_flag(btDevicesBox, LV_OBJ_FLAG_HIDDEN);
   lv_obj_set_size(btDevicesBox, 650, 400);
@@ -398,62 +442,66 @@ void showBtDevicesBoxCb(lv_event_t * e){
   btDevicesList = lv_list_create(content);
   lv_obj_set_size(btDevicesList, lv_pct(100), lv_pct(90));
 
-  lv_msgbox_add_close_button(btDevicesBox);
+  
   lv_obj_t * refreshBtn = lv_msgbox_add_header_button(btDevicesBox, LV_SYMBOL_REFRESH);
+  lv_obj_set_style_text_color(refreshBtn, lv_color_hex(0x000000), 0);
+  lv_obj_add_event_cb(refreshBtn, refreshBtAv, LV_EVENT_SHORT_CLICKED, NULL);
+  lv_obj_t * closeBtn = lv_msgbox_add_close_button(btDevicesBox);
+  lv_obj_set_style_text_color(closeBtn, lv_color_hex(0x000000), 0);
     //lv_obj_t * mbox = (lv_obj_t *) lv_event_get_user_data(e);
   //lv_obj_remove_flag(btDevicesBox, LV_OBJ_FLAG_HIDDEN);
     //return;
-    btg_dev* devs = gattbt_get_available_devices();
-    for(int i=0;i<20;i++){
-      btg_dev* d=devs+i;
-      if(strcmp(d->address,"")!=0){
-        char lbl[60];
 
-        //sel_bt_device *s=malloc(sizeof(sel_bt_device));
-        d->key=*index;
-        d->type=BMS_DALY;
-        
-        printf("adding btdevice %s to scan-liszplace %d\n",d->address,i);
-        snprintf(lbl, 60-1,"%s (%s) [%s]",d->name,d->address,btg_devtype2string(d->type));
-        lv_obj_t * seldev=lv_list_add_button(btDevicesList,LV_SYMBOL_BLUETOOTH, lbl);
-        
-        lv_obj_add_event_cb(seldev, selBtDevice, LV_EVENT_SHORT_CLICKED, d);
-        lv_obj_add_event_cb(seldev, selBtType, LV_EVENT_LONG_PRESSED, d);
-      }
-    }
-    
+  addAvDevsToList();
     
     //btScanSetup(fillBtListCb);
     //btStartScan();
 }
 
-void btConnTile(infotile* it,void* prefKey){
-  //lv_obj_set_flex_flow(it->cont, LV_FLEX_FLOW_ROW);
 
+
+
+void btConnTile(infotile* ix_unused ,void* key){
+  uint16_t* arrayKey=(uint16_t*)key;
+  infotile* it=batteries+(*arrayKey);
+  char dn[30];
+  lv_obj_clean(it->cont);
+  btg_dev* devs = prefGetBtDevices();
+  sprintf(dn,LV_SYMBOL_BLUETOOTH " BT#%d (%s)",*arrayKey,btg_devtype2string((devs+*arrayKey)->type));
+  it->label = lv_label_create(it->cont);
+  lv_label_set_text(it->label,dn);
+  
+  //lv_obj_set_flex_flow(it->cont, LV_FLEX_FLOW_ROW);
+  
   it->value = lv_label_create(it->cont);
-  printf("creating tile for array index %d\n",(*(uint16_t*)prefKey));
+  printf("creating tile for array index %d\n",(*arrayKey));
   lv_obj_t * btn1=lv_button_create(it->cont);
   lv_obj_t * btnLabel = lv_label_create(btn1);
-  printf("x");
   lv_obj_set_style_text_color(btnLabel, lv_color_hex(0x000000), 0);
  
-  const char* btAddress=prefGetBtDeviceAddress((*(uint16_t*)prefKey));
+  const char* btAddress=prefGetBtDeviceAddress(*arrayKey);
   //free(prefKey);
   
   printf(btAddress);
-   printf("y\n");
   if(strlen(btAddress)==0){
     lv_label_set_text(it->value,"---");
-    lv_label_set_text(btnLabel,"+");
+    lv_label_set_text(btnLabel,LV_SYMBOL_PLUS);
   }else{
     lv_label_set_text(it->value,btAddress);
-    lv_label_set_text(btnLabel,"X");
+    lv_label_set_text(btnLabel,LV_SYMBOL_TRASH);
+    
+    lv_obj_t * btnTc=lv_button_create(it->cont);
+    lv_obj_t * btnTcLabel = lv_label_create(btnTc);
+    lv_label_set_text(btnTcLabel,LV_SYMBOL_LOOP);
+    lv_obj_set_style_text_color(btnTcLabel, lv_color_hex(0x000000), 0);
+      
+    lv_obj_add_event_cb(btnTc, selBtType, LV_EVENT_CLICKED, key);
   }
   
 
   //add/remove device msgbox
 
-  lv_obj_add_event_cb(btn1, showBtDevicesBoxCb, LV_EVENT_CLICKED, prefKey);
+  lv_obj_add_event_cb(btn1, showBtDevicesBoxCb, LV_EVENT_CLICKED, key);
 
 }
 
@@ -622,11 +670,11 @@ void drawTabView(void){
 void drawSettingsTile2(lv_obj_t * parent,infotile* it, const char* name, void (*valfunc)(infotile*,void*), void* ud, uint16_t xsize,uint16_t ysize){
   lv_obj_t * cont = lv_obj_create(parent);
   lv_obj_set_style_bg_color(cont, lv_color_hex(0x000000), 0);
-  lv_obj_t * label = lv_label_create(cont);
+  it->label = lv_label_create(cont);
   //lv_obj_set_size(label,lv_pct(100), 15);
-  lv_obj_set_style_pad_all(label,0,0);
+  lv_obj_set_style_pad_all(it->label,0,0);
   
-  lv_label_set_text(label, name);
+  lv_label_set_text(it->label, name);
 
   lv_obj_set_style_pad_all(cont,5,0);
   lv_obj_set_style_border_width(cont,2,0);
@@ -844,14 +892,16 @@ void createSettingsTab(){
   lv_obj_add_event_cb(retardunits.value, sw_avas_evh, LV_EVENT_VALUE_CHANGED, NULL);
 
   //bluetooth-batteries
-  btg_dev* devs=gattbt_get_devices();
+  btg_dev* devs=prefGetBtDevices();
   
   for(uint16_t i=0;i<NUM_BT_DEVICES;i++){
-    char dn[30];
+    //char dn[30];
     //uint16_t* key = devs+i;
-    devs[i].key=i;
-    sprintf(dn,LV_SYMBOL_BLUETOOTH " BT#%d (%s)",i,btg_devtype2string(devs[i].type));
-    drawSettingsTile2(cont,&btBattery1, dn, btConnTile,  &devs[i].key, 600, 100);
+    //devs[i].key=i;
+    
+    drawSettingsTile2(cont,&batteries[i], "", btConnTile, &i, 600, 100);
+    
+
   }
  // drawSettingsTile2(cont,&btBattery2, "Batterie 2", btConnTile, NULL, 600, 100);
 printf("a\n");
@@ -877,6 +927,7 @@ void initTileGridStyle(){
 }
 
 void showMainScreen(lv_display_t *disp){
+  gattbt_set_discover_cb(addAvDevsToList);
  th = lv_theme_default_init(disp,                 /* Use DPI, size, etc. from this display */
                                         lv_color_hex(0xffffff),   /* Primary and secondary palette */
                                         lv_color_hex(0xdddddd),

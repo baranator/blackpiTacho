@@ -148,8 +148,7 @@ int main(int argc, char **argv){
     printf("start\n");
     prefLoad();
     //prefSave();
-    printf("before GATT init\n");
-    gattbt_init();
+
     fullscreen = maximize = false;
     window_width = atoi(getenv("LV_SIM_WINDOW_WIDTH") ? : "800");
     window_height = atoi(getenv("LV_SIM_WINDOW_HEIGHT") ? : "480");
@@ -165,7 +164,9 @@ int main(int argc, char **argv){
    // lv_example_get_started_1();
     //lv_demo_widgets();
     //lv_demo_widgets_start_slideshow();
-    showMainScreen(display);
+    showMainScreen(display);    
+    printf("before GATT init\n");
+    gattbt_init();
     printf("C\n");
     lv_linux_run_loop();
 

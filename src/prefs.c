@@ -42,6 +42,10 @@ void prefSetRetardUnits(bool b){
     prefSave();
 }
 
+btg_dev * prefGetBtDevices(){
+    return bluetooth_devices;
+}
+
 const char * prefGetBtDeviceAddress(int i){
     if(i>=NUM_BT_DEVICES)
         return NULL;

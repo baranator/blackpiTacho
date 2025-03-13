@@ -6,17 +6,14 @@
 #include "btbluetooth.h"
 
 
-// typedef struct pref_btg_dev{
-// 	btg_devtype type;
-// 	char address[18];
-// } pref_btg_dev;
-
-
 bool prefSave();
 bool prefGetAvasEnabled();
 void prefSetAvasEnabled(bool b);
 bool prefGetRetardUnits();
 void prefSetRetardUnits(bool b);
+
+btg_dev * prefGetBtDevices();
+
 const char * prefGetBtDeviceAddress(int i);
 void prefSetBtDeviceAddress(int i,char* a);
 

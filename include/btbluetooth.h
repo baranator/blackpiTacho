@@ -3,17 +3,19 @@
 #include <stdint.h>
 #include "gattlib.h"
 
-#define BMS_MAX_CELLS 32
+
 #define NUM_BT_DEVICES 2
 #define BT_MAX_SCAN_DEVS 20
+
+#define BMS_MAX_CELLS 32
+
+
 
 typedef enum btg_devtype {
 	UNKNOWN=0,
 	BMS_DALY=1,
 	CTRL_FARDRIVER=2
 } btg_devtype;
-
-
 
 typedef struct btg_bmsdata{
 	uint16_t soc_perm;
@@ -28,10 +30,16 @@ typedef struct btg_dev{
 	btg_devtype type;
 	char address[18];
 	char name[25];
-	uint16_t key;
+	//uint16_t key;
 	gattlib_connection_t* connection;
 	btg_bmsdata data;
 } btg_dev;
+
+
+
+
+
+
 
 
 char* btg_devtype2string(btg_devtype t);
@@ -39,8 +47,11 @@ btg_devtype btg_string2devtype(char* s);
 
 btg_dev* gattbt_get_available_devices();
 btg_dev gattbt_get_available_device(uint16_t i);
-btg_dev* gattbt_get_devices();
+// btg_dev* gattbt_get_devices();
+void gattbt_set_discover_cb(void (*cb)(uint16_t*));
 void gattbt_init();
-
+void gattbt_startscan();
+void gattbt_abortscan();
+bool gattbt_exists(char* address);
 
 #endif

@@ -9,10 +9,8 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "prefs.h"
 
-#ifdef GATTLIB_LOG_BACKEND_SYSLOG
-#include <syslog.h>
-#endif
 
 
 
@@ -27,14 +25,16 @@ int scanTime = 5;
 
 
 btg_dev available_bt_devices[BT_MAX_SCAN_DEVS];
-btg_dev btg_devices[NUM_BT_DEVICES]; 
+//btg_dev btg_devices[NUM_BT_DEVICES]; 
 
 atomic_int lastInsert=0;
 
 pthread_t gattbt_bgthread;
 
 atomic_bool btjob_scan=true;
+gattlib_adapter_t* adapter;
 
+void (*ext_discover_cb)() ;
 
 static pthread_mutex_t m_available_bt_devices_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -51,8 +51,14 @@ btg_dev gattbt_get_available_device(uint16_t i){
 }
 
 
-btg_dev* gattbt_get_devices(){
-	return btg_devices;
+// btg_dev* gattbt_get_devices(){
+// 	return btg_devices;
+// }
+
+void gattbt_startscan(){
+	if(!btjob_scan){
+		btjob_scan=true;
+	}
 }
 
 char* btg_devtype2string(btg_devtype t){
@@ -92,7 +98,26 @@ static pthread_cond_t m_connection_terminated = PTHREAD_COND_INITIALIZER;
 // declaring mutex
 static pthread_mutex_t m_connection_terminated_lock = PTHREAD_MUTEX_INITIALIZER;
 
+void gattbt_set_discover_cb(void (*cb)()){
+	ext_discover_cb=cb;
+}
 
+
+void gattbt_abortscan(){
+	if(adapter!=NULL)
+		gattlib_adapter_scan_disable(adapter);
+}
+
+bool gattbt_exists(char* address){
+	btg_dev *devs = prefGetBtDevices();
+	for(int i=0;i<NUM_BT_DEVICES;i++){
+		//printf("comparing %s to %s\n",btg_devices[i].address,address);
+		if(strcmp((devs+i)->address,address)==0){
+			return true;
+		}
+	}
+	return false;
+}
 
 static int stricmp(char const *a, char const *b) {
     for (;; a++, b++) {
@@ -138,10 +163,11 @@ static void notification_handler(const uuid_t* uuid, const uint8_t* data, size_t
 	
 	for(unsigned int i=0;i<NUM_BT_DEVICES;i++){
 		printf("dev %d \n",i);
-		if(btg_devices[i].address!=NULL && stricmp(btg_devices[i].address, addr)==0){
+		btg_dev *devs= prefGetBtDevices();
+		if(devs[i].address!=NULL && stricmp(devs[i].address, addr)==0){
 			printf("treffer ");
-			if(btg_devices[i].type == BMS_DALY){
-				btg_parse_data_dalybms(btg_devices+i,data,data_length);
+			if(devs[i].type == BMS_DALY){
+				btg_parse_data_dalybms(devs+i,data,data_length);
 			}
 			
 		}
@@ -245,7 +271,7 @@ static void ble_discovered_device(gattlib_adapter_t* adapter, const char* addr, 
 	//return;
 	
 	//following lines may cause race condition/segfault
-	pthread_mutex_lock(&m_available_bt_devices_lock);
+//	pthread_mutex_lock(&m_available_bt_devices_lock);
 	strcpy(available_bt_devices[lastInsert].address, addr);
 	
 	if(name != NULL){
@@ -254,7 +280,7 @@ static void ble_discovered_device(gattlib_adapter_t* adapter, const char* addr, 
 	}else{
 		strncpy(available_bt_devices[lastInsert].name, "<<unkn.>>", 10);
 	}
-	pthread_mutex_unlock(&m_available_bt_devices_lock);
+//	pthread_mutex_unlock(&m_available_bt_devices_lock);
 	//printf( "Found other bluetooth device '%s' (%s), putitng it to %d \n", addr,name,lastInsert);
 	lastInsert++;
 	
@@ -281,18 +307,20 @@ static void ble_discovered_device(gattlib_adapter_t* adapter, const char* addr, 
 		
 	}
 }
+
+uint16_t devlist=0;
+
 //-> hier is der absturz drin
 static void* ble_task(void* arg) {
 	char* addr = arg;
-	gattlib_adapter_t* adapter;
+	
 	int ret;
 	printf("BLETASK\n");
 	//openadapter
 	ret = gattlib_adapter_open(m_argument.adapter_name, &adapter);
-	printf("BLETASK2\n");
 	while(ret!=GATTLIB_SUCCESS){
 		printf("Failed to open adapter.retry in 2s\n");
-		g_usleep(20 * G_USEC_PER_SEC);
+		g_usleep(2 * G_USEC_PER_SEC);
 		ret = gattlib_adapter_open(m_argument.adapter_name, &adapter);
 	}
 	printf("adapter opened\n");
@@ -300,19 +328,32 @@ static void* ble_task(void* arg) {
 	while(true){
 		//printf("loop bt\n");
 		if(btjob_scan){
-			btjob_scan=false;
+			//gattlib_adapter_scan_disable(adapter);
+			gattlib_adapter_close(adapter);
+			ret = gattlib_adapter_open(m_argument.adapter_name, &adapter);
+			if (ret!=GATTLIB_SUCCESS) {
+				printf("Failed to open adapter for scan: %d.\n",ret);
+				//return NULL;
+			}else{
+				printf("adapter opened for scan\n");
+			}
 			for(int i=0;i<BT_MAX_SCAN_DEVS;i++){
 				strcpy(available_bt_devices[i].address,"");
 				strcpy(available_bt_devices[i].name,"");
 			}
 			lastInsert=0;
-			printf("scan succ0: %s\n",addr);
+			printf("scanstart: %s\n",addr);
 			ret = gattlib_adapter_scan_enable(adapter, ble_discovered_device, BLE_SCAN_TIMEOUT, addr);
-			if (ret) {
-				printf("Failed to scan.\n");
-				return NULL;
+			if (ret!=GATTLIB_SUCCESS) {
+				printf("Failed to scan: %d.\n",ret);
+				//return NULL;
+			}else{
+				printf("scan succ\n");
 			}
-			printf("scan succ\n");
+			
+			ext_discover_cb();//TODO:causes segfault when callback is not set after startup
+						btjob_scan=false;
+
 		}
 		g_usleep(1000*10);
 	}
@@ -361,16 +402,16 @@ void gattbt_init(){
 
 }
 
-int smain(int argc, char *argv[]) {
-	
-
-	m_argument.adapter_name = NULL;
-	m_argument.mac_address = "E4:52:49:AE:AC:2C";
-	m_argument.mac_address = "86:68:02:01:0d:2d";
-	//btg_devices[0].address = "86:68:02:01:0d:2d";
-	//btg_devices[0].type = BMS_DALY;
-	gattbt_init();
-
-	return 0;
-}
+// int smain(int argc, char *argv[]) {
+// 	
+// 
+// 	m_argument.adapter_name = NULL;
+// 	m_argument.mac_address = "E4:52:49:AE:AC:2C";
+// 	m_argument.mac_address = "86:68:02:01:0d:2d";
+// 	//btg_devices[0].address = "86:68:02:01:0d:2d";
+// 	//btg_devices[0].type = BMS_DALY;
+// 	gattbt_init();
+// 
+// 	return 0;
+// }
 
